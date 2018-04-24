@@ -6,6 +6,12 @@ export declare class DragDropData {
     mouseEvent: MouseEvent;
 }
 export declare function dragDropServiceFactory(): DragDropService;
+export declare class DragDropRevertData {
+    initialContainerRef: any;
+    finalContainerRef: any;
+    initialContainerItemsCopy: any;
+    finalContainerItemsCopy: any;
+}
 export declare class DragDropService {
     allowedDropZones: Array<string>;
     onDragSuccessCallback: EventEmitter<DragDropData>;
@@ -18,6 +24,7 @@ export declare class DragDropSortableService {
     index: number;
     sortableContainer: SortableContainer;
     isDragged: boolean;
+    revertData: DragDropRevertData;
     private _elem;
     readonly elem: HTMLElement;
     constructor(_config: DragDropConfig);

@@ -92,6 +92,8 @@ class DragDropData {
 function dragDropServiceFactory() {
     return new DragDropService();
 }
+class DragDropRevertData {
+}
 let DragDropService = class DragDropService {
     constructor() {
         this.allowedDropZones = [];
@@ -106,6 +108,7 @@ function dragDropSortableServiceFactory(config) {
 let DragDropSortableService = class DragDropSortableService {
     constructor(_config) {
         this._config = _config;
+        this.revertData = new DragDropRevertData();
     }
     get elem() {
         return this._elem;
@@ -628,8 +631,11 @@ let SortableContainer = class SortableContainer extends AbstractComponent {
     constructor(elemRef, dragDropService, config, cdr, _sortableDataService) {
         super(elemRef, dragDropService, config, cdr);
         this._sortableDataService = _sortableDataService;
-        this._sortableData = [];
         this.keepOnDrop = false;
+        this.enableDrop = true;
+        this.maxContainerSize = -1;
+        this.onItemAddedCallback = new EventEmitter();
+        this._sortableData = [];
         this.dragEnabled = false;
     }
     set draggable(value) {
@@ -653,31 +659,46 @@ let SortableContainer = class SortableContainer extends AbstractComponent {
     set dropzones(value) {
         this.dropZones = value;
     }
+    isHoverValid(sortableSource) {
+        if (this.maxContainerSize !== -1 && sortableSource !== this) {
+            return this.sortableData.length < this.maxContainerSize;
+        }
+        return true;
+    }
     _onDragEnterCallback(event) {
-        if (this._sortableDataService.isDragged) {
-            let item = this._sortableDataService.sortableContainer.getItemAt(this._sortableDataService.index);
+        if (this._sortableDataService.isDragged && this.enableDrop) {
+            const item = this._sortableDataService.sortableContainer.getItemAt(this._sortableDataService.index);
             // Check does element exist in sortableData of this Container
             if (this.indexOf(item) === -1) {
-                // Let's add it
-                // Remove item from previouse list only if keepOnDrop param and its same container
-                if (!this.keepOnDrop) {
-                    this._sortableDataService.sortableContainer.removeItemAt(this._sortableDataService.index);
-                    if (this._sortableDataService.sortableContainer._sortableData.length === 0) {
-                        this._sortableDataService.sortableContainer.dropEnabled = true;
+                if (this.isHoverValid(this._sortableDataService.sortableContainer)) {
+                    // REVERT: Store container state to revert changes if necessary
+                    if (this._sortableDataService.revertData.finalContainerRef !== this) {
+                        this._sortableDataService.revertData.finalContainerRef = this;
+                        this._sortableDataService.revertData.finalContainerItemsCopy =
+                            Object.assign([], this._sortableDataService.revertData.finalContainerRef.sortableData);
                     }
-                }
-                else {
-                    if (this._sortableDataService.sortableContainer === this) {
+                    // Let's add it
+                    // Remove item from previouse list only if keepOnDrop param and its same container
+                    if (!this._sortableDataService.sortableContainer.keepOnDrop) {
                         this._sortableDataService.sortableContainer.removeItemAt(this._sortableDataService.index);
                         if (this._sortableDataService.sortableContainer._sortableData.length === 0) {
                             this._sortableDataService.sortableContainer.dropEnabled = true;
                         }
                     }
+                    else {
+                        if (this._sortableDataService.sortableContainer === this) {
+                            this._sortableDataService.sortableContainer.removeItemAt(this._sortableDataService.index);
+                            if (this._sortableDataService.sortableContainer._sortableData.length === 0) {
+                                this._sortableDataService.sortableContainer.dropEnabled = true;
+                            }
+                        }
+                    }
+                    // Add item to new list
+                    this.insertItemAt(item, 0);
+                    this._sortableDataService.sortableContainer = this;
+                    this._sortableDataService.index = 0;
+                    this.onItemAddedCallback.emit(item);
                 }
-                // Add item to new list
-                this.insertItemAt(item, 0);
-                this._sortableDataService.sortableContainer = this;
-                this._sortableDataService.index = 0;
             }
             // Refresh changes in properties of container component
             this.detectChanges();
@@ -695,9 +716,12 @@ let SortableContainer = class SortableContainer extends AbstractComponent {
     insertItemAt(item, index) {
         this.sortableHandler.insertItemAt(this._sortableData, item, index);
     }
+    replaceItems(replaceItems) {
+        this.sortableHandler.replaceItems(this._sortableData, replaceItems);
+    }
 };
 __decorate$5([
-    Input("dragEnabled"),
+    Input('dragEnabled'),
     __metadata$4("design:type", Boolean),
     __metadata$4("design:paramtypes", [Boolean])
 ], SortableContainer.prototype, "draggable", null);
@@ -707,7 +731,7 @@ __decorate$5([
     __metadata$4("design:paramtypes", [Object])
 ], SortableContainer.prototype, "sortableData", null);
 __decorate$5([
-    Input("dropZones"),
+    Input('dropZones'),
     __metadata$4("design:type", Array),
     __metadata$4("design:paramtypes", [Array])
 ], SortableContainer.prototype, "dropzones", null);
@@ -715,6 +739,18 @@ __decorate$5([
     Input(),
     __metadata$4("design:type", Object)
 ], SortableContainer.prototype, "keepOnDrop", void 0);
+__decorate$5([
+    Input(),
+    __metadata$4("design:type", Object)
+], SortableContainer.prototype, "enableDrop", void 0);
+__decorate$5([
+    Input(),
+    __metadata$4("design:type", Object)
+], SortableContainer.prototype, "maxContainerSize", void 0);
+__decorate$5([
+    Output('onItemAdded'),
+    __metadata$4("design:type", EventEmitter)
+], SortableContainer.prototype, "onItemAddedCallback", void 0);
 SortableContainer = __decorate$5([
     Directive({ selector: '[dnd-sortable-container]' }),
     __metadata$4("design:paramtypes", [ElementRef, DragDropService, DragDropConfig, ChangeDetectorRef,
@@ -733,6 +769,15 @@ class SortableArrayHandler {
     insertItemAt(sortableData, item, index) {
         sortableData.splice(index, 0, item);
     }
+    replaceItems(sortableData, replaceItems) {
+        // Empty the list
+        sortableData.splice(0, sortableData.length);
+        // Insert new Items
+        for (let itemIndex = 0; itemIndex < replaceItems.length; itemIndex++) {
+            const item = replaceItems[itemIndex];
+            this.insertItemAt(sortableData, item, itemIndex);
+        }
+    }
 }
 class SortableFormArrayHandler {
     getItemAt(sortableData, index) {
@@ -747,12 +792,22 @@ class SortableFormArrayHandler {
     insertItemAt(sortableData, item, index) {
         sortableData.insert(index, item);
     }
+    replaceItems(sortableData, replaceItems) {
+        // Empty the list
+        sortableData.splice(0, sortableData.length);
+        // Insert new Items
+        for (let itemIndex = 0; itemIndex < replaceItems.length; itemIndex++) {
+            const item = replaceItems[itemIndex];
+            this.insertItemAt(sortableData, item, itemIndex);
+        }
+    }
 }
 let SortableComponent = class SortableComponent extends AbstractComponent {
     constructor(elemRef, dragDropService, config, _sortableContainer, _sortableDataService, cdr) {
         super(elemRef, dragDropService, config, cdr);
         this._sortableContainer = _sortableContainer;
         this._sortableDataService = _sortableDataService;
+        this.dragEnabled = true;
         /**
          * Callback function called when the drag action ends with a valid drop action.
          * It is activated after the on-drop-success callback
@@ -763,7 +818,6 @@ let SortableComponent = class SortableComponent extends AbstractComponent {
         this.onDragEndCallback = new EventEmitter();
         this.onDropSuccessCallback = new EventEmitter();
         this.dropZones = this._sortableContainer.dropZones;
-        this.dragEnabled = true;
         this.dropEnabled = true;
     }
     set draggable(value) {
@@ -796,6 +850,10 @@ let SortableComponent = class SortableComponent extends AbstractComponent {
         this._dragDropService.onDragSuccessCallback = this.onDragSuccessCallback;
         //
         this.onDragStartCallback.emit(this._dragDropService.dragData);
+        // REVERT: Generate a copy of the list in case drag end unsuccess
+        this._sortableDataService.revertData.initialContainerRef = this._sortableDataService.sortableContainer;
+        this._sortableDataService.revertData.initialContainerItemsCopy =
+            Object.assign([], this._sortableDataService.revertData.initialContainerRef.sortableData);
     }
     _onDragOverCallback(event) {
         if (this._sortableDataService.isDragged && this._elem !== this._sortableDataService.elem) {
@@ -807,7 +865,6 @@ let SortableComponent = class SortableComponent extends AbstractComponent {
         }
     }
     _onDragEndCallback(event) {
-        // console.log('_onDragEndCallback. end dragging elem with index ' + this.index);
         this._sortableDataService.isDragged = false;
         this._sortableDataService.sortableContainer = null;
         this._sortableDataService.index = null;
@@ -818,49 +875,77 @@ let SortableComponent = class SortableComponent extends AbstractComponent {
         this._dragDropService.onDragSuccessCallback = null;
         // Emit Drop end event
         this.onDragEndCallback.emit(this._dragDropService.dragData);
+        // REVERT: Revert all the changes if not container references
+        if (this._sortableDataService.revertData.initialContainerRef &&
+            this._sortableDataService.revertData.finalContainerRef) {
+            this.resetChanges();
+        }
+    }
+    /**
+     * Handles the revert functionality for the containers on drop unsuccess
+     */
+    resetChanges() {
+        this._sortableDataService.revertData.initialContainerRef.replaceItems(this._sortableDataService.revertData.initialContainerItemsCopy);
+        this._sortableDataService.revertData.finalContainerRef.replaceItems(this._sortableDataService.revertData.finalContainerItemsCopy);
+        this._sortableDataService.revertData = new DragDropRevertData();
+        this.detectChanges();
     }
     _onDragEnterCallback(event) {
-        if (this._sortableDataService.isDragged) {
+        if (this._sortableContainer.enableDrop && this._sortableDataService.isDragged) {
             this._sortableDataService.markSortable(this._elem);
             if ((this.index !== this._sortableDataService.index) ||
                 (this._sortableDataService.sortableContainer.sortableData !== this._sortableContainer.sortableData)) {
-                // Get item
-                const item = this._sortableDataService.sortableContainer.getItemAt(this._sortableDataService.index);
-                // Remove item from previouse list
-                // Remove only if same container
-                if (!this._sortableDataService.sortableContainer.keepOnDrop) {
-                    this._sortableDataService.sortableContainer.removeItemAt(this._sortableDataService.index);
-                    if (this._sortableDataService.sortableContainer.sortableData.length === 0) {
-                        this._sortableDataService.sortableContainer.dropEnabled = true;
+                if (this._sortableContainer.isHoverValid(this._sortableDataService.sortableContainer)) {
+                    // REVERT: Store container state to revert changes if necessary
+                    if (this._sortableDataService.revertData.finalContainerRef !== this._sortableContainer) {
+                        this._sortableDataService.revertData.finalContainerRef = this._sortableContainer;
+                        this._sortableDataService.revertData.finalContainerItemsCopy =
+                            Object.assign([], this._sortableDataService.revertData.finalContainerRef.sortableData);
                     }
-                }
-                else {
-                    if (this._sortableDataService.sortableContainer === this._sortableContainer) {
+                    // Get item
+                    const item = this._sortableDataService.sortableContainer.getItemAt(this._sortableDataService.index);
+                    // Remove item from previous list
+                    if (!this._sortableDataService.sortableContainer.keepOnDrop) {
                         this._sortableDataService.sortableContainer.removeItemAt(this._sortableDataService.index);
                         if (this._sortableDataService.sortableContainer.sortableData.length === 0) {
                             this._sortableDataService.sortableContainer.dropEnabled = true;
                         }
                     }
+                    else {
+                        // Remove only if same container
+                        if (this._sortableDataService.sortableContainer === this._sortableContainer) {
+                            this._sortableDataService.sortableContainer.removeItemAt(this._sortableDataService.index);
+                            if (this._sortableDataService.sortableContainer.sortableData.length === 0) {
+                                this._sortableDataService.sortableContainer.dropEnabled = true;
+                            }
+                        }
+                    }
+                    // Add item to new list
+                    this._sortableContainer.insertItemAt(item, this.index);
+                    if (this._sortableContainer.dropEnabled) {
+                        this._sortableContainer.dropEnabled = false;
+                    }
+                    // Emit Item Added Event
+                    this._sortableContainer.onItemAddedCallback.emit(item);
+                    this._sortableDataService.sortableContainer = this._sortableContainer;
+                    this._sortableDataService.index = this.index;
+                    this.detectChanges();
                 }
-                // Add item to new list
-                this._sortableContainer.insertItemAt(item, this.index);
-                if (this._sortableContainer.dropEnabled) {
-                    this._sortableContainer.dropEnabled = false;
-                }
-                this._sortableDataService.sortableContainer = this._sortableContainer;
-                this._sortableDataService.index = this.index;
-                this.detectChanges();
             }
         }
     }
     _onDropCallback(event) {
         if (this._sortableDataService.isDragged) {
-            this.onDropSuccessCallback.emit(this._dragDropService.dragData);
-            if (this._dragDropService.onDragSuccessCallback) {
-                this._dragDropService.onDragSuccessCallback.emit(this._dragDropService.dragData);
+            if (this._sortableContainer.isHoverValid(this._sortableDataService.sortableContainer)) {
+                // REVERT: Reset revert data since drop was success
+                this._sortableDataService.revertData = new DragDropRevertData();
+                this.onDropSuccessCallback.emit(this._dragDropService.dragData);
+                if (this._dragDropService.onDragSuccessCallback) {
+                    this._dragDropService.onDragSuccessCallback.emit(this._dragDropService.dragData);
+                }
+                // Refresh changes in properties of container component
+                this._sortableContainer.detectChanges();
             }
-            // Refresh changes in properties of container component
-            this._sortableContainer.detectChanges();
         }
     }
 };
@@ -869,12 +954,12 @@ __decorate$5([
     __metadata$4("design:type", Number)
 ], SortableComponent.prototype, "index", void 0);
 __decorate$5([
-    Input("dragEnabled"),
+    Input('dragEnabled'),
     __metadata$4("design:type", Boolean),
     __metadata$4("design:paramtypes", [Boolean])
 ], SortableComponent.prototype, "draggable", null);
 __decorate$5([
-    Input("dropEnabled"),
+    Input('dropEnabled'),
     __metadata$4("design:type", Boolean),
     __metadata$4("design:paramtypes", [Boolean])
 ], SortableComponent.prototype, "droppable", null);
@@ -883,12 +968,12 @@ __decorate$5([
     __metadata$4("design:type", Object)
 ], SortableComponent.prototype, "dragData", void 0);
 __decorate$5([
-    Input("effectAllowed"),
+    Input('effectAllowed'),
     __metadata$4("design:type", String),
     __metadata$4("design:paramtypes", [String])
 ], SortableComponent.prototype, "effectallowed", null);
 __decorate$5([
-    Input("effectCursor"),
+    Input('effectCursor'),
     __metadata$4("design:type", String),
     __metadata$4("design:paramtypes", [String])
 ], SortableComponent.prototype, "effectcursor", null);
@@ -968,5 +1053,5 @@ var DndModule_1;
  * Generated bundle index. Do not edit.
  */
 
-export { providers, DndModule, AbstractComponent, AbstractHandleComponent, DataTransferEffect, DragImage, DragDropConfig, DragDropData, dragDropServiceFactory, DragDropService, dragDropSortableServiceFactory, DragDropSortableService, DraggableComponent, DraggableHandleComponent, DroppableComponent, SortableContainer, SortableComponent, SortableHandleComponent };
+export { providers, DndModule, AbstractComponent, AbstractHandleComponent, DataTransferEffect, DragImage, DragDropConfig, DragDropData, dragDropServiceFactory, DragDropRevertData, DragDropService, dragDropSortableServiceFactory, DragDropSortableService, DraggableComponent, DraggableHandleComponent, DroppableComponent, SortableContainer, SortableComponent, SortableHandleComponent };
 //# sourceMappingURL=ng2-dnd.js.map

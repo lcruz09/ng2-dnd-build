@@ -7,21 +7,27 @@ import { DragDropService, DragDropSortableService } from './dnd.service';
 export declare class SortableContainer extends AbstractComponent {
     private _sortableDataService;
     draggable: boolean;
-    private _sortableData;
-    private sortableHandler;
     sortableData: Array<any> | FormArray;
     dropzones: Array<string>;
     keepOnDrop: boolean;
+    enableDrop: boolean;
+    maxContainerSize: number;
+    onItemAddedCallback: EventEmitter<any>;
+    private _sortableData;
+    private sortableHandler;
+    isHoverValid(sortableSource: SortableContainer): boolean;
     constructor(elemRef: ElementRef, dragDropService: DragDropService, config: DragDropConfig, cdr: ChangeDetectorRef, _sortableDataService: DragDropSortableService);
     _onDragEnterCallback(event: Event): void;
     getItemAt(index: number): any;
     indexOf(item: any): number;
     removeItemAt(index: number): void;
     insertItemAt(item: any, index: number): void;
+    replaceItems(replaceItems: any): void;
 }
 export declare class SortableComponent extends AbstractComponent {
     private _sortableContainer;
     private _sortableDataService;
+    dragEnabled: boolean;
     index: number;
     draggable: boolean;
     droppable: boolean;
@@ -50,6 +56,10 @@ export declare class SortableComponent extends AbstractComponent {
     _onDragStartCallback(event: Event): void;
     _onDragOverCallback(event: Event): void;
     _onDragEndCallback(event: Event): void;
+    /**
+     * Handles the revert functionality for the containers on drop unsuccess
+     */
+    resetChanges(): void;
     _onDragEnterCallback(event: Event): void;
     _onDropCallback(event: Event): void;
 }
