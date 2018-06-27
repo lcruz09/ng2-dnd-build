@@ -940,6 +940,7 @@ exports.SortableComponent = /** @class */ (function (_super) {
         _this.onDragOverCallback = new core.EventEmitter();
         _this.onDragEndCallback = new core.EventEmitter();
         _this.onDropSuccessCallback = new core.EventEmitter();
+        _this.onDropFailedCallback = new core.EventEmitter();
         _this.dropZones = _this._sortableContainer.dropZones;
         _this.dropEnabled = true;
         return _this;
@@ -1028,6 +1029,7 @@ exports.SortableComponent = /** @class */ (function (_super) {
         this._sortableDataService.revertData.initialContainerRef.replaceItems(this._sortableDataService.revertData.initialContainerItemsCopy);
         this._sortableDataService.revertData.finalContainerRef.replaceItems(this._sortableDataService.revertData.finalContainerItemsCopy);
         this._sortableDataService.revertData = new DragDropRevertData();
+        this.onDropFailedCallback.emit();
         this.detectChanges();
     };
     SortableComponent.prototype._onDragEnterCallback = function (event) {
@@ -1138,6 +1140,10 @@ __decorate$5([
     core.Output("onDropSuccess"),
     __metadata$4("design:type", core.EventEmitter)
 ], exports.SortableComponent.prototype, "onDropSuccessCallback", void 0);
+__decorate$5([
+    core.Output("onDropFailed"),
+    __metadata$4("design:type", core.EventEmitter)
+], exports.SortableComponent.prototype, "onDropFailedCallback", void 0);
 exports.SortableComponent = __decorate$5([
     core.Directive({ selector: '[dnd-sortable]' }),
     __metadata$4("design:paramtypes", [core.ElementRef, exports.DragDropService, DragDropConfig,

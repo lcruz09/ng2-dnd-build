@@ -817,6 +817,7 @@ let SortableComponent = class SortableComponent extends AbstractComponent {
         this.onDragOverCallback = new EventEmitter();
         this.onDragEndCallback = new EventEmitter();
         this.onDropSuccessCallback = new EventEmitter();
+        this.onDropFailedCallback = new EventEmitter();
         this.dropZones = this._sortableContainer.dropZones;
         this.dropEnabled = true;
     }
@@ -888,6 +889,7 @@ let SortableComponent = class SortableComponent extends AbstractComponent {
         this._sortableDataService.revertData.initialContainerRef.replaceItems(this._sortableDataService.revertData.initialContainerItemsCopy);
         this._sortableDataService.revertData.finalContainerRef.replaceItems(this._sortableDataService.revertData.finalContainerItemsCopy);
         this._sortableDataService.revertData = new DragDropRevertData();
+        this.onDropFailedCallback.emit();
         this.detectChanges();
     }
     _onDragEnterCallback(event) {
@@ -997,6 +999,10 @@ __decorate$5([
     Output("onDropSuccess"),
     __metadata$4("design:type", EventEmitter)
 ], SortableComponent.prototype, "onDropSuccessCallback", void 0);
+__decorate$5([
+    Output("onDropFailed"),
+    __metadata$4("design:type", EventEmitter)
+], SortableComponent.prototype, "onDropFailedCallback", void 0);
 SortableComponent = __decorate$5([
     Directive({ selector: '[dnd-sortable]' }),
     __metadata$4("design:paramtypes", [ElementRef, DragDropService, DragDropConfig,

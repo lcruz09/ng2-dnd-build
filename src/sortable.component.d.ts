@@ -52,6 +52,7 @@ export declare class SortableComponent extends AbstractComponent {
     onDragOverCallback: EventEmitter<any>;
     onDragEndCallback: EventEmitter<any>;
     onDropSuccessCallback: EventEmitter<any>;
+    onDropFailedCallback: EventEmitter<any>;
     constructor(elemRef: ElementRef, dragDropService: DragDropService, config: DragDropConfig, _sortableContainer: SortableContainer, _sortableDataService: DragDropSortableService, cdr: ChangeDetectorRef);
     _onDragStartCallback(event: Event): void;
     _onDragOverCallback(event: Event): void;

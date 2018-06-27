@@ -936,6 +936,7 @@ var SortableComponent = /** @class */ (function (_super) {
         _this.onDragOverCallback = new EventEmitter();
         _this.onDragEndCallback = new EventEmitter();
         _this.onDropSuccessCallback = new EventEmitter();
+        _this.onDropFailedCallback = new EventEmitter();
         _this.dropZones = _this._sortableContainer.dropZones;
         _this.dropEnabled = true;
         return _this;
@@ -1024,6 +1025,7 @@ var SortableComponent = /** @class */ (function (_super) {
         this._sortableDataService.revertData.initialContainerRef.replaceItems(this._sortableDataService.revertData.initialContainerItemsCopy);
         this._sortableDataService.revertData.finalContainerRef.replaceItems(this._sortableDataService.revertData.finalContainerItemsCopy);
         this._sortableDataService.revertData = new DragDropRevertData();
+        this.onDropFailedCallback.emit();
         this.detectChanges();
     };
     SortableComponent.prototype._onDragEnterCallback = function (event) {
@@ -1134,6 +1136,10 @@ __decorate$5([
     Output("onDropSuccess"),
     __metadata$4("design:type", EventEmitter)
 ], SortableComponent.prototype, "onDropSuccessCallback", void 0);
+__decorate$5([
+    Output("onDropFailed"),
+    __metadata$4("design:type", EventEmitter)
+], SortableComponent.prototype, "onDropFailedCallback", void 0);
 SortableComponent = __decorate$5([
     Directive({ selector: '[dnd-sortable]' }),
     __metadata$4("design:paramtypes", [ElementRef, DragDropService, DragDropConfig,
