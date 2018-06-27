@@ -737,6 +737,7 @@ exports.SortableContainer = /** @class */ (function (_super) {
         _this.enableDrop = true;
         _this.maxContainerSize = -1;
         _this.onItemAddedCallback = new core.EventEmitter();
+        _this.onDropFailedCallback = new core.EventEmitter();
         _this._sortableData = [];
         _this.dragEnabled = false;
         return _this;
@@ -867,6 +868,10 @@ __decorate$5([
     core.Output('onItemAdded'),
     __metadata$4("design:type", core.EventEmitter)
 ], exports.SortableContainer.prototype, "onItemAddedCallback", void 0);
+__decorate$5([
+    core.Output("onDropFailed"),
+    __metadata$4("design:type", core.EventEmitter)
+], exports.SortableContainer.prototype, "onDropFailedCallback", void 0);
 exports.SortableContainer = __decorate$5([
     core.Directive({ selector: '[dnd-sortable-container]' }),
     __metadata$4("design:paramtypes", [core.ElementRef, exports.DragDropService, DragDropConfig, core.ChangeDetectorRef,
@@ -1017,9 +1022,13 @@ exports.SortableComponent = /** @class */ (function (_super) {
         // Emit Drop end event
         this.onDragEndCallback.emit(this._dragDropService.dragData);
         // REVERT: Revert all the changes if not container references
-        if (this._sortableDataService.revertData.initialContainerRef &&
-            this._sortableDataService.revertData.finalContainerRef) {
-            this.resetChanges();
+        if (this._sortableDataService.revertData.initialContainerRef) {
+            // Emit Drop Failed Event
+            this._sortableDataService.revertData.initialContainerRef.onDropFailedCallback.emit();
+            this.onDropFailedCallback.emit();
+            if (this._sortableDataService.revertData.finalContainerRef) {
+                this.resetChanges();
+            }
         }
     };
     /**
@@ -1029,7 +1038,6 @@ exports.SortableComponent = /** @class */ (function (_super) {
         this._sortableDataService.revertData.initialContainerRef.replaceItems(this._sortableDataService.revertData.initialContainerItemsCopy);
         this._sortableDataService.revertData.finalContainerRef.replaceItems(this._sortableDataService.revertData.finalContainerItemsCopy);
         this._sortableDataService.revertData = new DragDropRevertData();
-        this.onDropFailedCallback.emit();
         this.detectChanges();
     };
     SortableComponent.prototype._onDragEnterCallback = function (event) {

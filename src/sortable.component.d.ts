@@ -13,6 +13,7 @@ export declare class SortableContainer extends AbstractComponent {
     enableDrop: boolean;
     maxContainerSize: number;
     onItemAddedCallback: EventEmitter<any>;
+    onDropFailedCallback: EventEmitter<any>;
     private _sortableData;
     private sortableHandler;
     isHoverValid(sortableSource: SortableContainer): boolean;
